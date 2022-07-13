@@ -20,3 +20,5 @@ module.exports = function entice() {
 }
 
 exports = 'wowzah'
+
+const regexMadness = /import foo from 'bar'/gi

@@ -15,4 +15,5 @@ export function entice(module, exports) {
   let a = `require('bar')`
   module.exports = { strange: 'package' }
   exports = 'chaos!'
+  const regexMadness = /require('asdsd')/gi
 }

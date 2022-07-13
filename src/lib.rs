@@ -107,6 +107,28 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             continue;
         }
 
+        // skip regex
+        if c == b'/' && b[i + 1] != b'/' {
+            let re_closing_pos = match b[i + 1..]
+                .iter()
+                .enumerate()
+                .position(|(j, &v)| v == b'/' && !is_backslash_escaped(b, i + 1 + j))
+            {
+                Some(pos) => pos,
+                None => break, // assume reach end of file
+            };
+            // we also need to skip regex modifiers
+            let re_modifier_pos = match b[i + 1 + re_closing_pos + 1..]
+                .iter()
+                .position(|&v| !v.is_ascii_alphabetic())
+            {
+                Some(pos) => pos,
+                None => break, // assume reach end of file
+            };
+            i += 1 + re_closing_pos + 1 + re_modifier_pos + 1;
+            continue;
+        }
+
         // esm specific detection
         if !is_esm {
             // top-level import
