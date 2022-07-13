@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum JsSyntax {
     ESM,
     CJS,
@@ -64,9 +64,6 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 Some(pos) => pos,
                 None => break, // assume reach end of file
             };
-            let snip = &s[i..i + 1 + closing_pos + 1];
-            println!("{} {} {}", i, i + closing_pos + 1, snip);
-
             i += 1 + closing_pos + 1;
             continue;
         }
@@ -90,14 +87,15 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             // top-level export
             // TODO: ignore variable declaration
             if c == b'e'
-                && b[i + 1] == b'p'
-                && b[i + 2] == b'o'
-                && b[i + 3] == b'r'
-                && b[i + 4] == b't'
-                && b[i + 5] == b' '
+                && b[i + 1] == b'x'
+                && b[i + 2] == b'p'
+                && b[i + 3] == b'o'
+                && b[i + 4] == b'r'
+                && b[i + 5] == b't'
+                && b[i + 6] == b' '
             {
                 is_esm = true;
-                i += 6;
+                i += 7;
                 continue;
             }
         }
