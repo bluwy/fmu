@@ -13,6 +13,13 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     let mut is_cjs = false;
     let b = s.as_bytes();
 
+    // parse state
+    // template literals can contain js via ${}, when this happens, we increase the depth by 1.
+    // because this can happen nested, whenever the depth is odd, we are working with js,
+    // whenever the depth is even, we are working with template literals.
+    // this also affects how we check for closing char.
+    let mut template_literal_js_depth = 0;
+
     while i < b.len() {
         let c = b[i];
 
@@ -45,18 +52,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         if c == b'\'' || c == b'"' {
             let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
                 if v == c {
-                    // make sure quotes aren't escaped by backtracking the number of backslashes.
-                    // we consider unescaped if has 0 or and even number of backslashes.
-                    let mut prev_iter_pos = j - 1;
-                    while b[i + 1 + prev_iter_pos] == b'\\' {
-                        if prev_iter_pos > 0 {
-                            prev_iter_pos -= 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    let backslash_num = j - prev_iter_pos + 1;
-                    return backslash_num % 2 == 0;
+                    return !is_backslash_escaped(b, i + 1 + j);
                 } else {
                     return false;
                 }
@@ -65,6 +61,49 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 None => break, // assume reach end of file
             };
             i += 1 + closing_pos + 1;
+            continue;
+        }
+
+        // template literal
+        // or
+        // we caught the end of ${}, next up would be resolving the template literal too,
+        // so we share this condition
+        if c == b'`' || template_literal_js_depth % 2 == 1 && c == b'}' {
+            if c == b'}' {
+                template_literal_js_depth -= 1;
+                // now we're in an even depth (template literal)
+            }
+
+            let new_line_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                // capture ${
+                if v == b'$' && b[i + 1 + j + 1] == b'{' {
+                    let not_escaped = !is_backslash_escaped(b, i + 1 + j);
+                    if not_escaped {
+                        template_literal_js_depth += 1;
+                    }
+                    return not_escaped;
+                }
+                // capture `
+                if v == c {
+                    let not_escaped = !is_backslash_escaped(b, i + 1 + j);
+                    if not_escaped {
+                        // if we're workiing in nested js code, a ` denotes a new nested template literal,
+                        // increase depth by 1.
+                        if template_literal_js_depth % 2 == 1 {
+                            template_literal_js_depth += 1;
+                        } else {
+                            template_literal_js_depth -= 1;
+                        }
+                    }
+                    return not_escaped;
+                } else {
+                    return false;
+                }
+            }) {
+                Some(pos) => pos,
+                None => break, // assume reach end of file
+            };
+            i += 1 + new_line_pos + 1;
             continue;
         }
 
@@ -129,4 +168,19 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     } else {
         return JsSyntax::Unknown;
     }
+}
+
+// make sure things aren't escaped by backtracking the number of backslashes.
+// we consider escaped if has an odd number of backslashes.
+fn is_backslash_escaped(full_str: &[u8], char_index: usize) -> bool {
+    let mut prev_iter_pos = char_index - 1;
+    while full_str[prev_iter_pos] == b'\\' {
+        if prev_iter_pos > 0 {
+            prev_iter_pos -= 1;
+        } else {
+            break;
+        }
+    }
+    let backslash_num = char_index - prev_iter_pos + 1;
+    backslash_num % 2 == 1
 }
