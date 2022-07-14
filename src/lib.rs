@@ -138,11 +138,23 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 && b[i + 3] == b'o'
                 && b[i + 4] == b'r'
                 && b[i + 5] == b't'
-                && b[i + 6] == b' '
+                && !b[i + 6].is_ascii_alphabetic()
+                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
             {
-                is_esm = true;
+                // TODO: handle \r\n?
+                for &v in b[i + 6..].iter() {
+                    if v == b'\'' || v == b'"' || v == b'\n' {
+                        is_esm = true;
+                        break;
+                    } else if v == b'(' {
+                        // dynamic import
+                        break;
+                    }
+                }
                 i += 7;
-                continue;
+                if is_esm {
+                    continue;
+                }
             }
 
             // top-level export
@@ -153,7 +165,8 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 && b[i + 3] == b'o'
                 && b[i + 4] == b'r'
                 && b[i + 5] == b't'
-                && b[i + 6] == b' '
+                && !b[i + 6].is_ascii_alphabetic()
+                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
             {
                 is_esm = true;
                 i += 7;
@@ -171,9 +184,12 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 && b[i + 4] == b'i'
                 && b[i + 5] == b'r'
                 && b[i + 6] == b'e'
+                && !b[i + 7].is_ascii_alphabetic()
+                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
             {
+                println!("{}", "cjs");
                 is_cjs = true;
-                i += 7;
+                i += 8;
                 continue;
             }
 
@@ -186,6 +202,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 && b[i + 4] == b'l'
                 && b[i + 5] == b'e'
                 && !b[i + 6].is_ascii_alphabetic()
+                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
             {
                 is_cjs = true;
                 i += 7;
@@ -202,6 +219,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 && b[i + 5] == b't'
                 && b[i + 6] == b's'
                 && !b[i + 7].is_ascii_alphabetic()
+                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
             {
                 is_cjs = true;
                 i += 8;
