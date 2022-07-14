@@ -176,6 +176,37 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 i += 7;
                 continue;
             }
+
+            // module reference
+            // TODO: skip scoped variables
+            if c == b'm'
+                && b[i + 1] == b'o'
+                && b[i + 2] == b'd'
+                && b[i + 3] == b'u'
+                && b[i + 4] == b'l'
+                && b[i + 5] == b'e'
+                && !b[i + 6].is_ascii_alphabetic()
+            {
+                is_cjs = true;
+                i += 7;
+                continue;
+            }
+
+            // exports reference
+            // TODO: skip scoped variables
+            if c == b'e'
+                && b[i + 1] == b'x'
+                && b[i + 2] == b'p'
+                && b[i + 3] == b'o'
+                && b[i + 4] == b'r'
+                && b[i + 5] == b't'
+                && b[i + 6] == b's'
+                && !b[i + 7].is_ascii_alphabetic()
+            {
+                is_cjs = true;
+                i += 8;
+                continue;
+            }
         }
 
         i += 1;
