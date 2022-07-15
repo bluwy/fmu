@@ -20,7 +20,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     // this also affects how we check for closing char.
     let mut template_literal_js_depth = 0;
     // shadowing
-    let scope_depth = 0;
+    let mut scope_depth = 0;
     let mut require_shadowed_depth = usize::MAX;
     let mut module_shadowed_depth = usize::MAX;
     let mut exports_shadowed_depth = usize::MAX;
@@ -164,16 +164,25 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         }
 
         if !is_cjs {
-            // TODO: ignore variable declaration
-            // we're making a quick parse so we can assume every "{" creates a scope, "}" closes a scope.
-            // this is important because if a variable called `require`, `module`, `exports` is declared
-            // within a scope, further detection should be skip until the scope is closed.
-            // so our goal here is to detect those variable declarations, which is not easy.
-            // ideally there are only these cases:
-            // 1. `var`, `let`, `const` - make sure only capture lhs (ignore multi-declaration for now)
-            // 2. `function(){}` - walk forwards and backwards for enclosing parentheses,
-            //     and make sure it's followed by a {
-            // 3. `() => {}`- use same heuristic as above, but allow =>
+            // track scope depth
+            // NOTE: track in cjs only as it's only relevant for it
+            // TODO: track => scope
+            if c == b'{' {
+                scope_depth += 1;
+            } else if c == b'}' {
+                scope_depth -= 1;
+                // re-concile shadowed depth, if we exit the scope that has been
+                // shadowed by require, module, or exports, reset them
+                if scope_depth < require_shadowed_depth {
+                    require_shadowed_depth = usize::MAX;
+                }
+                if scope_depth < module_shadowed_depth {
+                    module_shadowed_depth = usize::MAX;
+                }
+                if scope_depth < exports_shadowed_depth {
+                    exports_shadowed_depth = usize::MAX;
+                }
+            }
 
             // top-level require
             if require_shadowed_depth < scope_depth && is_require_identifier(&b, i) {
