@@ -19,6 +19,11 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     // whenever the depth is even, we are working with template literals.
     // this also affects how we check for closing char.
     let mut template_literal_js_depth = 0;
+    // shadowing
+    let scope_depth = 0;
+    let mut require_shadowed_depth = usize::MAX;
+    let mut module_shadowed_depth = usize::MAX;
+    let mut exports_shadowed_depth = usize::MAX;
 
     while i < b.len() {
         let c = b[i];
@@ -132,15 +137,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         // esm specific detection
         if !is_esm {
             // top-level import
-            if c == b'i'
-                && b[i + 1] == b'm'
-                && b[i + 2] == b'p'
-                && b[i + 3] == b'o'
-                && b[i + 4] == b'r'
-                && b[i + 5] == b't'
-                && !b[i + 6].is_ascii_alphabetic()
-                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
-            {
+            if is_import_identifier(&b, i) {
                 // TODO: handle \r\n?
                 for &v in b[i + 6..].iter() {
                     if v == b'\'' || v == b'"' || v == b'\n' {
@@ -159,15 +156,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
             // top-level export
             // TODO: ignore variable declaration
-            if c == b'e'
-                && b[i + 1] == b'x'
-                && b[i + 2] == b'p'
-                && b[i + 3] == b'o'
-                && b[i + 4] == b'r'
-                && b[i + 5] == b't'
-                && !b[i + 6].is_ascii_alphabetic()
-                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
-            {
+            if is_export_identifier(&b, i) {
                 is_esm = true;
                 i += 7;
                 continue;
@@ -187,51 +176,34 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             // 3. `() => {}`- use same heuristic as above, but allow =>
 
             // top-level require
-            // TODO: skip createRequire
-            if c == b'r'
-                && b[i + 1] == b'e'
-                && b[i + 2] == b'q'
-                && b[i + 3] == b'u'
-                && b[i + 4] == b'i'
-                && b[i + 5] == b'r'
-                && b[i + 6] == b'e'
-                && !b[i + 7].is_ascii_alphabetic()
-                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
-            {
-                is_cjs = true;
+            if require_shadowed_depth < scope_depth && is_require_identifier(&b, i) {
+                if is_var_declaration(&b, i, i + 7) {
+                    require_shadowed_depth = scope_depth;
+                } else {
+                    is_cjs = true;
+                }
                 i += 8;
                 continue;
             }
 
             // module reference
-            // TODO: skip scoped variables
-            if c == b'm'
-                && b[i + 1] == b'o'
-                && b[i + 2] == b'd'
-                && b[i + 3] == b'u'
-                && b[i + 4] == b'l'
-                && b[i + 5] == b'e'
-                && !b[i + 6].is_ascii_alphabetic()
-                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
-            {
-                is_cjs = true;
+            if module_shadowed_depth < scope_depth && is_module_identifier(&b, i) {
+                if is_var_declaration(&b, i, i + 6) {
+                    module_shadowed_depth = scope_depth;
+                } else {
+                    is_cjs = true;
+                }
                 i += 7;
                 continue;
             }
 
             // exports reference
-            // TODO: skip scoped variables
-            if c == b'e'
-                && b[i + 1] == b'x'
-                && b[i + 2] == b'p'
-                && b[i + 3] == b'o'
-                && b[i + 4] == b'r'
-                && b[i + 5] == b't'
-                && b[i + 6] == b's'
-                && !b[i + 7].is_ascii_alphabetic()
-                && (i == 0 || !b[i - 1].is_ascii_alphabetic())
-            {
-                is_cjs = true;
+            if exports_shadowed_depth < scope_depth && is_exports_identifier(&b, i) {
+                if is_var_declaration(&b, i, i + 7) {
+                    exports_shadowed_depth = scope_depth;
+                } else {
+                    is_cjs = true;
+                }
                 i += 8;
                 continue;
             }
@@ -264,4 +236,160 @@ fn is_backslash_escaped(full_str: &[u8], char_index: usize) -> bool {
     }
     let backslash_num = char_index - prev_iter_pos + 1;
     backslash_num % 2 == 1
+}
+
+fn is_word_bounded(
+    full_str: &[u8],
+    identifier_start_index: usize,
+    identifier_end_index: usize,
+) -> bool {
+    !full_str[identifier_end_index].is_ascii_alphabetic()
+        && (identifier_start_index == 0
+            || !full_str[identifier_start_index - 1].is_ascii_alphabetic())
+}
+
+fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> usize {
+    let mut i = char_index;
+    while i > 0 && full_str[i - 1].is_ascii_whitespace() {
+        i -= 1;
+    }
+    i
+}
+
+fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) -> usize {
+    let mut i = char_index;
+    while i < full_str.len() && full_str[i].is_ascii_whitespace() {
+        i += 1;
+    }
+    i
+}
+
+fn is_import_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'i'
+        && full_str[iter_index + 1] == b'm'
+        && full_str[iter_index + 2] == b'p'
+        && full_str[iter_index + 3] == b'o'
+        && full_str[iter_index + 4] == b'r'
+        && full_str[iter_index + 5] == b't'
+        && is_word_bounded(&full_str, iter_index, iter_index + 6)
+}
+
+fn is_export_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'e'
+        && full_str[iter_index + 1] == b'x'
+        && full_str[iter_index + 2] == b'p'
+        && full_str[iter_index + 3] == b'o'
+        && full_str[iter_index + 4] == b'r'
+        && full_str[iter_index + 5] == b't'
+        && is_word_bounded(&full_str, iter_index, iter_index + 6)
+}
+
+fn is_require_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'r'
+        && full_str[iter_index + 1] == b'e'
+        && full_str[iter_index + 2] == b'q'
+        && full_str[iter_index + 3] == b'u'
+        && full_str[iter_index + 4] == b'i'
+        && full_str[iter_index + 5] == b'r'
+        && full_str[iter_index + 6] == b'e'
+        && is_word_bounded(full_str, iter_index, iter_index + 7)
+}
+
+fn is_module_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'm'
+        && full_str[iter_index + 1] == b'o'
+        && full_str[iter_index + 2] == b'd'
+        && full_str[iter_index + 3] == b'u'
+        && full_str[iter_index + 4] == b'l'
+        && full_str[iter_index + 5] == b'e'
+        && is_word_bounded(full_str, iter_index, iter_index + 6)
+}
+
+fn is_exports_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'e'
+        && full_str[iter_index + 1] == b'x'
+        && full_str[iter_index + 2] == b'p'
+        && full_str[iter_index + 3] == b'o'
+        && full_str[iter_index + 4] == b'r'
+        && full_str[iter_index + 5] == b't'
+        && full_str[iter_index + 6] == b's'
+        && is_word_bounded(full_str, iter_index, iter_index + 7)
+}
+
+// whether the identifier is a variable that
+fn is_var_declaration(
+    full_str: &[u8],
+    identifier_start_index: usize,
+    identifier_end_index: usize,
+) -> bool {
+    // check if preceded by var, let, const
+    let prev_non_whitespace_index =
+        get_nearest_non_whitespace_index_left(full_str, identifier_start_index);
+
+    // var
+    if full_str[prev_non_whitespace_index] == b'r'
+        && full_str[prev_non_whitespace_index - 1] == b'a'
+        && full_str[prev_non_whitespace_index - 2] == b'v'
+        && is_word_bounded(
+            full_str,
+            prev_non_whitespace_index - 2,
+            prev_non_whitespace_index + 1,
+        )
+    {
+        return true;
+    }
+
+    // let
+    if full_str[prev_non_whitespace_index] == b't'
+        && full_str[prev_non_whitespace_index - 1] == b'e'
+        && full_str[prev_non_whitespace_index - 2] == b'l'
+        && is_word_bounded(
+            full_str,
+            prev_non_whitespace_index - 2,
+            prev_non_whitespace_index + 1,
+        )
+    {
+        return true;
+    }
+
+    // const
+    if full_str[prev_non_whitespace_index] == b't'
+        && full_str[prev_non_whitespace_index - 1] == b's'
+        && full_str[prev_non_whitespace_index - 2] == b'n'
+        && full_str[prev_non_whitespace_index - 3] == b'o'
+        && full_str[prev_non_whitespace_index - 4] == b'c'
+        && is_word_bounded(
+            full_str,
+            prev_non_whitespace_index - 4,
+            prev_non_whitespace_index + 1,
+        )
+    {
+        return true;
+    }
+
+    let next_non_whitespace_index =
+        get_nearest_non_whitespace_index_right(full_str, identifier_end_index);
+
+    // function(identifier) {}
+    // function(foo, identifier) {}
+    // function(foo, identifier, bar) {}
+    // function(foo = identifier) {}
+    if full_str[prev_non_whitespace_index] == b'=' {
+        return false;
+    }
+    if full_str[prev_non_whitespace_index] == b'(' || full_str[prev_non_whitespace_index] == b',' {
+        return true;
+    }
+    if full_str[next_non_whitespace_index] == b'(' || full_str[next_non_whitespace_index] == b',' {
+        return true;
+    }
+
+    // identifier => {}
+    if full_str[next_non_whitespace_index] == b'='
+        && full_str[next_non_whitespace_index + 1] == b'>'
+    {
+        return true;
+    }
+
+    false
 }
