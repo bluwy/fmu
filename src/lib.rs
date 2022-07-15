@@ -148,7 +148,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                         break;
                     }
                 }
-                i += 7;
+                i += 6;
                 if is_esm {
                     continue;
                 }
@@ -158,7 +158,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             // TODO: ignore variable declaration
             if is_export_identifier(&b, i) {
                 is_esm = true;
-                i += 7;
+                i += 6;
                 continue;
             }
         }
@@ -185,20 +185,9 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             }
 
             // top-level require
-            if require_shadowed_depth < scope_depth && is_require_identifier(&b, i) {
+            if scope_depth < require_shadowed_depth && is_require_identifier(&b, i) {
                 if is_var_declaration(&b, i, i + 7) {
                     require_shadowed_depth = scope_depth;
-                } else {
-                    is_cjs = true;
-                }
-                i += 8;
-                continue;
-            }
-
-            // module reference
-            if module_shadowed_depth < scope_depth && is_module_identifier(&b, i) {
-                if is_var_declaration(&b, i, i + 6) {
-                    module_shadowed_depth = scope_depth;
                 } else {
                     is_cjs = true;
                 }
@@ -206,14 +195,25 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 continue;
             }
 
+            // module reference
+            if scope_depth < module_shadowed_depth && is_module_identifier(&b, i) {
+                if is_var_declaration(&b, i, i + 6) {
+                    module_shadowed_depth = scope_depth;
+                } else {
+                    is_cjs = true;
+                }
+                i += 6;
+                continue;
+            }
+
             // exports reference
-            if exports_shadowed_depth < scope_depth && is_exports_identifier(&b, i) {
+            if scope_depth < exports_shadowed_depth && is_exports_identifier(&b, i) {
                 if is_var_declaration(&b, i, i + 7) {
                     exports_shadowed_depth = scope_depth;
                 } else {
                     is_cjs = true;
                 }
-                i += 8;
+                i += 7;
                 continue;
             }
         }
@@ -389,7 +389,7 @@ fn is_var_declaration(
     if full_str[prev_non_whitespace_index] == b'(' || full_str[prev_non_whitespace_index] == b',' {
         return true;
     }
-    if full_str[next_non_whitespace_index] == b'(' || full_str[next_non_whitespace_index] == b',' {
+    if full_str[next_non_whitespace_index] == b')' || full_str[next_non_whitespace_index] == b',' {
         return true;
     }
 
