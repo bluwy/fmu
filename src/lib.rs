@@ -41,7 +41,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
         // multi line comment, ignore until */
         if c == b'/' && b[i + 1] == b'*' {
-            let closing_pos = match b[i + 3..]
+            let closing_pos = match b[i + 2..]
                 .iter()
                 .enumerate()
                 .position(|(j, &v)| v == b'/' && b[i + 3 + j - 1] == b'*')
@@ -138,6 +138,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         if !is_esm {
             // top-level import
             if is_import_identifier(&b, i) {
+                // TODO: import.meta
                 // TODO: handle \r\n?
                 for &v in b[i + 6..].iter() {
                     if v == b'\'' || v == b'"' || v == b'\n' {
@@ -237,6 +238,11 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     }
 }
 
+// safe index
+fn si(i: usize, b: &[u8]) -> usize {
+    i.min(b.len() - 1)
+}
+
 // make sure things aren't escaped by backtracking the number of backslashes.
 // we consider escaped if has an odd number of backslashes.
 fn is_backslash_escaped(full_str: &[u8], char_index: usize) -> bool {
@@ -280,53 +286,53 @@ fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) ->
 
 fn is_import_identifier(full_str: &[u8], iter_index: usize) -> bool {
     full_str[iter_index] == b'i'
-        && full_str[iter_index + 1] == b'm'
-        && full_str[iter_index + 2] == b'p'
-        && full_str[iter_index + 3] == b'o'
-        && full_str[iter_index + 4] == b'r'
-        && full_str[iter_index + 5] == b't'
+        && full_str[si(iter_index + 1, full_str)] == b'm'
+        && full_str[si(iter_index + 2, full_str)] == b'p'
+        && full_str[si(iter_index + 3, full_str)] == b'o'
+        && full_str[si(iter_index + 4, full_str)] == b'r'
+        && full_str[si(iter_index + 5, full_str)] == b't'
         && is_word_bounded(&full_str, iter_index, iter_index + 6)
 }
 
 fn is_export_identifier(full_str: &[u8], iter_index: usize) -> bool {
     full_str[iter_index] == b'e'
-        && full_str[iter_index + 1] == b'x'
-        && full_str[iter_index + 2] == b'p'
-        && full_str[iter_index + 3] == b'o'
-        && full_str[iter_index + 4] == b'r'
-        && full_str[iter_index + 5] == b't'
+        && full_str[si(iter_index + 1, full_str)] == b'x'
+        && full_str[si(iter_index + 2, full_str)] == b'p'
+        && full_str[si(iter_index + 3, full_str)] == b'o'
+        && full_str[si(iter_index + 4, full_str)] == b'r'
+        && full_str[si(iter_index + 5, full_str)] == b't'
         && is_word_bounded(&full_str, iter_index, iter_index + 6)
 }
 
 fn is_require_identifier(full_str: &[u8], iter_index: usize) -> bool {
     full_str[iter_index] == b'r'
-        && full_str[iter_index + 1] == b'e'
-        && full_str[iter_index + 2] == b'q'
-        && full_str[iter_index + 3] == b'u'
-        && full_str[iter_index + 4] == b'i'
-        && full_str[iter_index + 5] == b'r'
-        && full_str[iter_index + 6] == b'e'
+        && full_str[si(iter_index + 1, full_str)] == b'e'
+        && full_str[si(iter_index + 2, full_str)] == b'q'
+        && full_str[si(iter_index + 3, full_str)] == b'u'
+        && full_str[si(iter_index + 4, full_str)] == b'i'
+        && full_str[si(iter_index + 5, full_str)] == b'r'
+        && full_str[si(iter_index + 6, full_str)] == b'e'
         && is_word_bounded(full_str, iter_index, iter_index + 7)
 }
 
 fn is_module_identifier(full_str: &[u8], iter_index: usize) -> bool {
     full_str[iter_index] == b'm'
-        && full_str[iter_index + 1] == b'o'
-        && full_str[iter_index + 2] == b'd'
-        && full_str[iter_index + 3] == b'u'
-        && full_str[iter_index + 4] == b'l'
-        && full_str[iter_index + 5] == b'e'
+        && full_str[si(iter_index + 1, full_str)] == b'o'
+        && full_str[si(iter_index + 2, full_str)] == b'd'
+        && full_str[si(iter_index + 3, full_str)] == b'u'
+        && full_str[si(iter_index + 4, full_str)] == b'l'
+        && full_str[si(iter_index + 5, full_str)] == b'e'
         && is_word_bounded(full_str, iter_index, iter_index + 6)
 }
 
 fn is_exports_identifier(full_str: &[u8], iter_index: usize) -> bool {
     full_str[iter_index] == b'e'
-        && full_str[iter_index + 1] == b'x'
-        && full_str[iter_index + 2] == b'p'
-        && full_str[iter_index + 3] == b'o'
-        && full_str[iter_index + 4] == b'r'
-        && full_str[iter_index + 5] == b't'
-        && full_str[iter_index + 6] == b's'
+        && full_str[si(iter_index + 1, full_str)] == b'x'
+        && full_str[si(iter_index + 2, full_str)] == b'p'
+        && full_str[si(iter_index + 3, full_str)] == b'o'
+        && full_str[si(iter_index + 4, full_str)] == b'r'
+        && full_str[si(iter_index + 5, full_str)] == b't'
+        && full_str[si(iter_index + 6, full_str)] == b's'
         && is_word_bounded(full_str, iter_index, iter_index + 7)
 }
 
@@ -338,8 +344,8 @@ fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
 
     // var
     if full_str[prev_non_whitespace_index] == b'r'
-        && full_str[prev_non_whitespace_index - 1] == b'a'
-        && full_str[prev_non_whitespace_index - 2] == b'v'
+        && full_str[prev_non_whitespace_index.saturating_sub(1)] == b'a'
+        && full_str[prev_non_whitespace_index.saturating_sub(2)] == b'v'
         && is_word_bounded(
             full_str,
             prev_non_whitespace_index - 2,
@@ -351,8 +357,8 @@ fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
 
     // let
     if full_str[prev_non_whitespace_index] == b't'
-        && full_str[prev_non_whitespace_index - 1] == b'e'
-        && full_str[prev_non_whitespace_index - 2] == b'l'
+        && full_str[prev_non_whitespace_index.saturating_sub(1)] == b'e'
+        && full_str[prev_non_whitespace_index.saturating_sub(2)] == b'l'
         && is_word_bounded(
             full_str,
             prev_non_whitespace_index - 2,
@@ -364,10 +370,10 @@ fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
 
     // const
     if full_str[prev_non_whitespace_index] == b't'
-        && full_str[prev_non_whitespace_index - 1] == b's'
-        && full_str[prev_non_whitespace_index - 2] == b'n'
-        && full_str[prev_non_whitespace_index - 3] == b'o'
-        && full_str[prev_non_whitespace_index - 4] == b'c'
+        && full_str[prev_non_whitespace_index.saturating_sub(1)] == b's'
+        && full_str[prev_non_whitespace_index.saturating_sub(2)] == b'n'
+        && full_str[prev_non_whitespace_index.saturating_sub(3)] == b'o'
+        && full_str[prev_non_whitespace_index.saturating_sub(4)] == b'c'
         && is_word_bounded(
             full_str,
             prev_non_whitespace_index - 4,
