@@ -274,7 +274,7 @@ fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> 
     while i > 0 && full_str[i - 1].is_ascii_whitespace() {
         i -= 1;
     }
-    i
+    i - 1
 }
 
 fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) -> usize {
@@ -282,7 +282,7 @@ fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) ->
     while i < full_str.len() && full_str[i].is_ascii_whitespace() {
         i += 1;
     }
-    i
+    i + 1
 }
 
 fn is_import_identifier(full_str: &[u8], iter_index: usize) -> bool {
