@@ -155,7 +155,6 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             }
 
             // top-level export
-            // TODO: ignore variable declaration
             if is_export_identifier(&b, i) {
                 is_esm = true;
                 i += 6;
@@ -166,7 +165,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         if !is_cjs {
             // track scope depth
             // NOTE: track in cjs only as it's only relevant for it
-            // TODO: track => scope
+            // TODO: track => scope (pita)
             if c == b'{' {
                 scope_depth += 1;
             } else if c == b'}' {
@@ -186,8 +185,10 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
             // top-level require
             if scope_depth < require_shadowed_depth && is_require_identifier(&b, i) {
-                if is_var_declaration(&b, i, i + 7) {
+                if is_var_declaration(&b, i) {
                     require_shadowed_depth = scope_depth;
+                } else if is_function_param_declaration(&b, i, i + 7) {
+                    require_shadowed_depth = scope_depth + 1;
                 } else {
                     is_cjs = true;
                 }
@@ -197,8 +198,10 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
             // module reference
             if scope_depth < module_shadowed_depth && is_module_identifier(&b, i) {
-                if is_var_declaration(&b, i, i + 6) {
+                if is_var_declaration(&b, i) {
                     module_shadowed_depth = scope_depth;
+                } else if is_function_param_declaration(&b, i, i + 6) {
+                    module_shadowed_depth = scope_depth + 1;
                 } else {
                     is_cjs = true;
                 }
@@ -208,8 +211,10 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
             // exports reference
             if scope_depth < exports_shadowed_depth && is_exports_identifier(&b, i) {
-                if is_var_declaration(&b, i, i + 7) {
+                if is_var_declaration(&b, i) {
                     exports_shadowed_depth = scope_depth;
+                } else if is_function_param_declaration(&b, i, i + 7) {
+                    exports_shadowed_depth = scope_depth + 1;
                 } else {
                     is_cjs = true;
                 }
@@ -326,11 +331,7 @@ fn is_exports_identifier(full_str: &[u8], iter_index: usize) -> bool {
 }
 
 // whether the identifier is a variable that
-fn is_var_declaration(
-    full_str: &[u8],
-    identifier_start_index: usize,
-    identifier_end_index: usize,
-) -> bool {
+fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
     // check if preceded by var, let, const
     let prev_non_whitespace_index =
         get_nearest_non_whitespace_index_left(full_str, identifier_start_index);
@@ -376,6 +377,16 @@ fn is_var_declaration(
         return true;
     }
 
+    false
+}
+
+fn is_function_param_declaration(
+    full_str: &[u8],
+    identifier_start_index: usize,
+    identifier_end_index: usize,
+) -> bool {
+    let prev_non_whitespace_index =
+        get_nearest_non_whitespace_index_left(full_str, identifier_start_index);
     let next_non_whitespace_index =
         get_nearest_non_whitespace_index_right(full_str, identifier_end_index);
 
