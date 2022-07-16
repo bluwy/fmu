@@ -138,15 +138,18 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         if !is_esm {
             // top-level import
             if is_import_identifier(&b, i) {
-                // TODO: import.meta
-                // TODO: handle \r\n?
-                for &v in b[i + 6..].iter() {
-                    if v == b'\'' || v == b'"' || v == b'\n' {
-                        is_esm = true;
-                        break;
-                    } else if v == b'(' {
-                        // dynamic import
-                        break;
+                if b[i + 1] == b'.' && is_meta_identifier(&b, i + 2) {
+                    is_esm = true;
+                } else {
+                    // TODO: handle \r\n?
+                    for &v in b[i + 6..].iter() {
+                        if v == b'\'' || v == b'"' || v == b'\n' {
+                            is_esm = true;
+                            break;
+                        } else if v == b'(' {
+                            // dynamic import
+                            break;
+                        }
                     }
                 }
                 i += 6;
@@ -184,7 +187,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 }
             }
 
-            // top-level require
+            // require reference
             if scope_depth < require_shadowed_depth && is_require_identifier(&b, i) {
                 if is_var_declaration(&b, i) {
                     require_shadowed_depth = scope_depth;
@@ -292,6 +295,14 @@ fn is_import_identifier(full_str: &[u8], iter_index: usize) -> bool {
         && full_str[si(iter_index + 4, full_str)] == b'r'
         && full_str[si(iter_index + 5, full_str)] == b't'
         && is_word_bounded(&full_str, iter_index, iter_index + 6)
+}
+
+fn is_meta_identifier(full_str: &[u8], iter_index: usize) -> bool {
+    full_str[iter_index] == b'm'
+        && full_str[si(iter_index + 1, full_str)] == b'e'
+        && full_str[si(iter_index + 2, full_str)] == b't'
+        && full_str[si(iter_index + 3, full_str)] == b'a'
+        && is_word_bounded(&full_str, iter_index, iter_index + 4)
 }
 
 fn is_export_identifier(full_str: &[u8], iter_index: usize) -> bool {

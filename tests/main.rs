@@ -6,6 +6,7 @@ fn esm() {
     assert_eq!(get_js_syntax(&rs("esm_default_export")), JsSyntax::ESM);
     assert_eq!(get_js_syntax(&rs("esm_named_export")), JsSyntax::ESM);
     assert_eq!(get_js_syntax(&rs("esm_top_level_import")), JsSyntax::ESM);
+    assert_eq!(get_js_syntax(&rs("esm_import_meta")), JsSyntax::ESM);
     assert_eq!(get_js_syntax(&rs("esm_entice_cjs")), JsSyntax::ESM);
 }
 
