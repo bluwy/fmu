@@ -15,6 +15,7 @@ fn esm() {
 fn cjs() {
     assert_eq!(get_js_syntax(&rs("cjs_require")), JsSyntax::CJS);
     assert_eq!(get_js_syntax(&rs("cjs_require_in_string")), JsSyntax::CJS);
+    assert_eq!(get_js_syntax(&rs("cjs_create_require_scope")), JsSyntax::CJS);
     assert_eq!(get_js_syntax(&rs("cjs_entice_esm")), JsSyntax::CJS);
 }
 
