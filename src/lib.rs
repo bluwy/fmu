@@ -41,7 +41,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
         // multi line comment, ignore until */
         if c == b'/' && b[i + 1] == b'*' {
-            let closing_pos = match b[i + 2..]
+            let closing_pos = match b[i + 3..]
                 .iter()
                 .enumerate()
                 .position(|(j, &v)| v == b'/' && b[i + 3 + j - 1] == b'*')
@@ -153,9 +153,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                     }
                 }
                 i += 6;
-                if is_esm {
-                    continue;
-                }
+                continue;
             }
 
             // top-level export
