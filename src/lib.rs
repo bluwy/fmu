@@ -74,6 +74,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         // we caught the end of ${}, next up would be resolving the template literal too,
         // so we share this condition
         if c == b'`' || template_literal_js_depth % 2 == 1 && c == b'}' {
+            // TODO: track {} depth
             if c == b'}' {
                 template_literal_js_depth -= 1;
                 // now we're in an even depth (template literal)
@@ -113,25 +114,30 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         }
 
         // skip regex
-        if c == b'/' && b[i + 1] != b'/' {
-            let re_closing_pos = match b[i + 1..]
-                .iter()
-                .enumerate()
-                .position(|(j, &v)| v == b'/' && !is_backslash_escaped(b, i + 1 + j))
-            {
+        if c == b'/' {
+            let re_closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                // capture new line or closing regex
+                v == b'\n' || (v == b'/' && !is_backslash_escaped(b, i + 1 + j))
+            }) {
                 Some(pos) => pos,
                 None => break, // assume reach end of file
             };
-            // we also need to skip regex modifiers
-            let re_modifier_pos = match b[i + 1 + re_closing_pos + 1..]
-                .iter()
-                .position(|&v| !v.is_ascii_alphabetic())
-            {
-                Some(pos) => pos,
-                None => break, // assume reach end of file
-            };
-            i += 1 + re_closing_pos + 1 + re_modifier_pos + 1;
-            continue;
+            if b[i + 1 + re_closing_pos] == b'\n' {
+                // it's a division, not a regex
+                i += 1;
+                continue;
+            } else {
+                // we also need to skip regex modifiers
+                let re_modifier_pos = match b[i + 1 + re_closing_pos + 1..]
+                    .iter()
+                    .position(|&v| !v.is_ascii_alphabetic())
+                {
+                    Some(pos) => pos,
+                    None => break, // assume reach end of file
+                };
+                i += 1 + re_closing_pos + 1 + re_modifier_pos + 1;
+                continue;
+            }
         }
 
         // esm specific detection
@@ -143,7 +149,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 } else {
                     // TODO: handle \r\n?
                     for &v in b[i + 6..].iter() {
-                        if v == b'\'' || v == b'"' || v == b'\n' {
+                        if v == b'\'' || v == b'"' || v == b'{' || v == b'\n' {
                             is_esm = true;
                             break;
                         } else if v == b'(' {
