@@ -34,25 +34,58 @@ fn unknown() {
     assert_eq!(get_js_syntax(&rs("unknown")), JsSyntax::Unknown);
 }
 
-// const NPM_ESM_URLS: &'static [&str] = &[
-//     "https://unpkg.com/svelte@3.49.0/internal/index.mjs",
-//     "https://unpkg.com/vite@3.0.0/dist/node/chunks/dep-07a79996.js",
-//     "https://unpkg.com/vue@3.2.37/dist/vue.esm-browser.prod.js", // minified
-// ];
-
-// const NPM_CJS_URLS: &'static [&str] = &[
-//     "https://unpkg.com/svelte@3.49.0/internal/index.js",
-//     "https://unpkg.com/vue@3.2.37/dist/vue.cjs.prod.js",
-// ];
-
 #[tokio::test]
 async fn npm_esm_svelte() -> Result<(), Box<dyn std::error::Error>> {
     let res = fetch_unpkg(
-        "svelte",
+        "esm_svelte",
         "https://unpkg.com/svelte@3.49.0/internal/index.mjs",
     )
     .await?;
     assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    Ok(())
+}
+
+#[tokio::test]
+async fn npm_esm_vite() -> Result<(), Box<dyn std::error::Error>> {
+    let res = fetch_unpkg(
+        "esm_vite",
+        "https://unpkg.com/vite@3.0.0/dist/node/chunks/dep-07a79996.js",
+    )
+    .await?;
+    assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    Ok(())
+}
+
+#[tokio::test]
+async fn npm_esm_vue() -> Result<(), Box<dyn std::error::Error>> {
+    let res = fetch_unpkg(
+        "esm_vue",
+        "https://unpkg.com/vue@3.2.37/dist/vue.esm-browser.prod.js",
+    )
+    .await?;
+    assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    Ok(())
+}
+
+#[tokio::test]
+async fn npm_cjs_svelte() -> Result<(), Box<dyn std::error::Error>> {
+    let res = fetch_unpkg(
+        "cjs_svelte",
+        "https://unpkg.com/svelte@3.49.0/internal/index.js",
+    )
+    .await?;
+    assert_eq!(get_js_syntax(&res), JsSyntax::CJS);
+    Ok(())
+}
+
+#[tokio::test]
+async fn npm_cjs_vue() -> Result<(), Box<dyn std::error::Error>> {
+    let res = fetch_unpkg(
+        "cjs_vue",
+        "https://unpkg.com/vue@3.2.37/dist/vue.cjs.prod.js",
+    )
+    .await?;
+    assert_eq!(get_js_syntax(&res), JsSyntax::CJS);
     Ok(())
 }
 
@@ -74,7 +107,6 @@ async fn fetch_unpkg(name: &str, url: &str) -> Result<String, Box<dyn std::error
             let https = HttpsConnector::new();
             let client = Client::builder().build::<_, Body>(https);
             let resp = client.get(Uri::from_str(&url)?).await?;
-            println!("Status {:#?}", &resp);
             let body_bytes = to_bytes(resp.into_body()).await?;
             let content = String::from_utf8(body_bytes.to_vec()).unwrap();
             fs::create_dir("tests/samples/npm").ok();
