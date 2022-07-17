@@ -18,14 +18,17 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     // because this can happen nested, whenever the depth is odd, we are working with js,
     // whenever the depth is even, we are working with template literals.
     // this also affects how we check for closing char.
-    let mut template_literal_js_depth = 0;
+    // const foo = `hello ${world}`
+    // |----------||------||-----||
+    //       -1       0       1   0
+    let mut template_literal_js_depth = -1;
     // shadowing
     let mut scope_depth = 0;
     let mut require_shadowed_depth = usize::MAX;
     let mut module_shadowed_depth = usize::MAX;
     let mut exports_shadowed_depth = usize::MAX;
 
-    while i < b.len() {
+    while i < b.len() && !(is_esm && is_cjs) {
         let c = b[i];
 
         // single line comment, ignore until \n
@@ -73,45 +76,83 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         // or
         // we caught the end of ${}, next up would be resolving the template literal too,
         // so we share this condition
-        if c == b'`' || template_literal_js_depth % 2 == 1 && c == b'}' {
-            // TODO: track {} depth
-            if c == b'}' {
-                template_literal_js_depth -= 1;
-                // now we're in an even depth (template literal)
-            }
-
-            let new_line_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
-                // capture ${
-                if v == b'$' && b[i + 1 + j + 1] == b'{' {
-                    let not_escaped = !is_backslash_escaped(b, i + 1 + j);
-                    if not_escaped {
-                        template_literal_js_depth += 1;
+        if template_literal_js_depth == -1 {
+            if c == b'`' {
+                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                    // capture ${
+                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
+                        return !is_backslash_escaped(b, i + 1 + j);
                     }
-                    return not_escaped;
-                }
-                // capture `
-                if v == c {
-                    let not_escaped = !is_backslash_escaped(b, i + 1 + j);
-                    if not_escaped {
-                        // if we're workiing in nested js code, a ` denotes a new nested template literal,
-                        // increase depth by 1.
-                        if template_literal_js_depth % 2 == 1 {
-                            template_literal_js_depth += 1;
-                        } else {
-                            template_literal_js_depth -= 1;
-                        }
+                    // capture `
+                    if v == b'`' {
+                        return !is_backslash_escaped(b, i + 1 + j);
                     }
-                    return not_escaped;
+                    false
+                }) {
+                    Some(pos) => pos,
+                    None => break, // assume reach end of file
+                };
+                if b[i + 1 + closing_pos] == b'$' {
+                    // next iter is in js
+                    template_literal_js_depth += 2;
+                    i += 1 + closing_pos + 2;
                 } else {
-                    return false;
+                    i += 1 + closing_pos + 1;
                 }
-            }) {
-                Some(pos) => pos,
-                None => break, // assume reach end of file
+                continue;
             };
-            i += 1 + new_line_pos + 1;
-            continue;
-        }
+        } else if template_literal_js_depth % 2 == 1 {
+            // in js depth
+            // if `, can check ` or ${
+            if c == b'`' {
+                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                    // capture ${
+                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
+                        return !is_backslash_escaped(b, i + 1 + j);
+                    }
+                    // capture `
+                    if v == b'`' {
+                        return !is_backslash_escaped(b, i + 1 + j);
+                    }
+                    false
+                }) {
+                    Some(pos) => pos,
+                    None => break, // assume reach end of file
+                };
+                if b[i + 1 + closing_pos] == b'$' {
+                    // next iter is in js
+                    template_literal_js_depth += 2;
+                    i += 1 + closing_pos + 2;
+                } else {
+                    i += 1 + closing_pos + 1;
+                }
+                continue;
+            };
+            if c == b'}' {
+                // end of interpolation
+                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                    // capture ${
+                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
+                        return !is_backslash_escaped(b, i + 1 + j);
+                    }
+                    // capture `
+                    if v == b'`' {
+                        return !is_backslash_escaped(b, i + 1 + j);
+                    }
+                    false
+                }) {
+                    Some(pos) => pos,
+                    None => break, // assume reach end of file
+                };
+                if b[i + 1 + closing_pos] == b'$' {
+                    i += 1 + closing_pos + 2;
+                } else {
+                    template_literal_js_depth -= 2;
+                    i += 1 + closing_pos + 1;
+                }
+                continue;
+            }
+        };
 
         // skip regex
         if c == b'/' {
