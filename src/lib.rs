@@ -73,7 +73,8 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
         }
 
         // template literal, skip until ` or ${
-        if c == b'`' {
+        // template literal, but is inner js code, also check for closing }
+        if c == b'`' || (template_literal_js_depth > 0 && c == b'}') {
             let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
                 // capture ${
                 if v == b'$' && b[i + 1 + j + 1] == b'{' {
@@ -89,41 +90,20 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 None => break, // assume reach end of file
             };
             if b[i + 1 + closing_pos] == b'$' {
-                // next iter is in js
-                template_literal_js_depth += 1;
+                // only increment for `, since for ${ it's already incremented
+                if c == b'`' {
+                    template_literal_js_depth += 1;
+                }
                 i += 1 + closing_pos + 2;
             } else {
+                // only decrement for }, since for ` it's already decremented
+                if c == b'}' {
+                    template_literal_js_depth -= 1;
+                }
                 i += 1 + closing_pos + 1;
             }
             continue;
         };
-        // template literal, but is inner js code, also check for closing }
-        if template_literal_js_depth > 0 {
-            if c == b'}' {
-                // end of interpolation
-                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
-                    // capture ${
-                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    // capture `
-                    if v == b'`' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    false
-                }) {
-                    Some(pos) => pos,
-                    None => break, // assume reach end of file
-                };
-                if b[i + 1 + closing_pos] == b'$' {
-                    i += 1 + closing_pos + 2;
-                } else {
-                    template_literal_js_depth -= 1;
-                    i += 1 + closing_pos + 1;
-                }
-                continue;
-            }
-        }
 
         // skip regex
         if c == b'/' {
