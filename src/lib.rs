@@ -68,6 +68,7 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 Some(pos) => pos,
                 None => break, // assume reach end of file
             };
+            // println!("quotes {}", &s[i..i + 1 + closing_pos + 1]);
             i += 1 + closing_pos + 1;
             continue;
         }
@@ -94,12 +95,14 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 if c == b'`' {
                     template_literal_js_depth += 1;
                 }
+                // println!("temlitopen {}", &s[i..i + 1 + closing_pos + 2]);
                 i += 1 + closing_pos + 2;
             } else {
                 // only decrement for }, since for ` it's already decremented
                 if c == b'}' {
                     template_literal_js_depth -= 1;
                 }
+                // println!("temlitclose {}", &s[i..i + 1 + closing_pos + 1]);
                 i += 1 + closing_pos + 1;
             }
             continue;
@@ -107,28 +110,48 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
 
         // skip regex
         if c == b'/' {
-            let re_closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
-                // capture new line or closing regex
-                v == b'\n' || (v == b'/' && !is_backslash_escaped(b, i + 1 + j))
-            }) {
-                Some(pos) => pos,
-                None => break, // assume reach end of file
-            };
-            if b[i + 1 + re_closing_pos] == b'\n' {
-                // it's a division, not a regex
-                i += 1;
-                continue;
-            } else {
-                // we also need to skip regex modifiers
-                let re_modifier_pos = match b[i + 1 + re_closing_pos + 1..]
-                    .iter()
-                    .position(|&v| !v.is_ascii_alphabetic())
-                {
+            let left = get_nearest_non_whitespace_index_left(&b, i);
+            if !b[left].is_ascii_alphanumeric() || is_reverse_regex_preceded_keyword(&b, left) {
+                // mini [] state, anything in [] is literal, so skip / detection
+                let mut is_in_bracket = false;
+                let re_closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                    if v == b'[' && !is_backslash_escaped(b, i + 1 + j) {
+                        is_in_bracket = true;
+                        return false;
+                    } else if v == b']' && !is_backslash_escaped(b, i + 1 + j) {
+                        is_in_bracket = false;
+                        return false;
+                    } else if v == b'\n' {
+                        // TODO: this might be redundant
+                        return true;
+                    } else if !is_in_bracket && v == b'/' && !is_backslash_escaped(b, i + 1 + j) {
+                        return true;
+                    }
+                    false
+                }) {
                     Some(pos) => pos,
                     None => break, // assume reach end of file
                 };
-                i += 1 + re_closing_pos + 1 + re_modifier_pos + 1;
-                continue;
+                if b[i + 1 + re_closing_pos] == b'\n' {
+                    // it's a division, not a regex
+                    i += 1;
+                    continue;
+                } else {
+                    // we also need to skip regex modifiers
+                    let re_modifier_pos = match b[i + 1 + re_closing_pos + 1..]
+                        .iter()
+                        .position(|&v| !v.is_ascii_alphabetic())
+                    {
+                        Some(pos) => pos,
+                        None => break, // assume reach end of file
+                    };
+                    // println!(
+                    //     "regex {}",
+                    //     &s[i..i + 1 + re_closing_pos + 1 + re_modifier_pos]
+                    // );
+                    i += 1 + re_closing_pos + 1 + re_modifier_pos;
+                    continue;
+                }
             }
         }
 
@@ -424,5 +447,46 @@ fn is_function_param_declaration(
         return true;
     }
 
+    false
+}
+
+// whether the identifier is preceded by a JS keyword (in reverse check)
+// if, else, return, while, yield
+fn is_reverse_regex_preceded_keyword(full_str: &[u8], char_index: usize) -> bool {
+    if full_str[char_index] == b'f' && full_str[char_index.saturating_sub(1)] == b'i' {
+        return true;
+    }
+    if full_str[char_index] == b'e'
+        && full_str[char_index.saturating_sub(1)] == b's'
+        && full_str[char_index.saturating_sub(2)] == b'l'
+        && full_str[char_index.saturating_sub(3)] == b'e'
+    {
+        return true;
+    }
+    if full_str[char_index] == b'n'
+        && full_str[char_index.saturating_sub(1)] == b'r'
+        && full_str[char_index.saturating_sub(2)] == b'u'
+        && full_str[char_index.saturating_sub(3)] == b't'
+        && full_str[char_index.saturating_sub(4)] == b'e'
+        && full_str[char_index.saturating_sub(5)] == b'r'
+    {
+        return true;
+    }
+    if full_str[char_index] == b'e'
+        && full_str[char_index.saturating_sub(1)] == b'l'
+        && full_str[char_index.saturating_sub(2)] == b'i'
+        && full_str[char_index.saturating_sub(3)] == b'h'
+        && full_str[char_index.saturating_sub(4)] == b'w'
+    {
+        return true;
+    }
+    if full_str[char_index] == b'd'
+        && full_str[char_index.saturating_sub(1)] == b'l'
+        && full_str[char_index.saturating_sub(2)] == b'e'
+        && full_str[char_index.saturating_sub(3)] == b'i'
+        && full_str[char_index.saturating_sub(3)] == b'y'
+    {
+        return true;
+    }
     false
 }
