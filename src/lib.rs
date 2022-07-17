@@ -20,8 +20,8 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
     // this also affects how we check for closing char.
     // const foo = `hello ${world}`
     // |----------||------||-----||
-    //       -1       0       1   0
-    let mut template_literal_js_depth = -1;
+    //       0                1
+    let mut template_literal_js_depth = 0;
     // shadowing
     let mut scope_depth = 0;
     let mut require_shadowed_depth = usize::MAX;
@@ -72,62 +72,33 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
             continue;
         }
 
-        // template literal
-        // or
-        // we caught the end of ${}, next up would be resolving the template literal too,
-        // so we share this condition
-        if template_literal_js_depth == -1 {
-            if c == b'`' {
-                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
-                    // capture ${
-                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    // capture `
-                    if v == b'`' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    false
-                }) {
-                    Some(pos) => pos,
-                    None => break, // assume reach end of file
-                };
-                if b[i + 1 + closing_pos] == b'$' {
-                    // next iter is in js
-                    template_literal_js_depth += 2;
-                    i += 1 + closing_pos + 2;
-                } else {
-                    i += 1 + closing_pos + 1;
+        // template literal, skip until ` or ${
+        if c == b'`' {
+            let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
+                // capture ${
+                if v == b'$' && b[i + 1 + j + 1] == b'{' {
+                    return !is_backslash_escaped(b, i + 1 + j);
                 }
-                continue;
-            };
-        } else if template_literal_js_depth % 2 == 1 {
-            // in js depth
-            // if `, can check ` or ${
-            if c == b'`' {
-                let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
-                    // capture ${
-                    if v == b'$' && b[i + 1 + j + 1] == b'{' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    // capture `
-                    if v == b'`' {
-                        return !is_backslash_escaped(b, i + 1 + j);
-                    }
-                    false
-                }) {
-                    Some(pos) => pos,
-                    None => break, // assume reach end of file
-                };
-                if b[i + 1 + closing_pos] == b'$' {
-                    // next iter is in js
-                    template_literal_js_depth += 2;
-                    i += 1 + closing_pos + 2;
-                } else {
-                    i += 1 + closing_pos + 1;
+                // capture `
+                if v == b'`' {
+                    return !is_backslash_escaped(b, i + 1 + j);
                 }
-                continue;
+                false
+            }) {
+                Some(pos) => pos,
+                None => break, // assume reach end of file
             };
+            if b[i + 1 + closing_pos] == b'$' {
+                // next iter is in js
+                template_literal_js_depth += 1;
+                i += 1 + closing_pos + 2;
+            } else {
+                i += 1 + closing_pos + 1;
+            }
+            continue;
+        };
+        // template literal, but is inner js code, also check for closing }
+        if template_literal_js_depth > 0 {
             if c == b'}' {
                 // end of interpolation
                 let closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
@@ -147,12 +118,12 @@ pub fn get_js_syntax(s: &str) -> JsSyntax {
                 if b[i + 1 + closing_pos] == b'$' {
                     i += 1 + closing_pos + 2;
                 } else {
-                    template_literal_js_depth -= 2;
+                    template_literal_js_depth -= 1;
                     i += 1 + closing_pos + 1;
                 }
                 continue;
             }
-        };
+        }
 
         // skip regex
         if c == b'/' {
