@@ -1,5 +1,6 @@
 use fmu::{get_js_syntax, JsSyntax};
-use hyper::{body::to_bytes, Client, Uri};
+use hyper::{body::to_bytes, Body, Client, Uri};
+use hyper_tls::HttpsConnector;
 use std::{fs, str::FromStr};
 
 #[test]
@@ -46,9 +47,9 @@ fn unknown() {
 
 #[tokio::test]
 async fn npm_esm_svelte() -> Result<(), Box<dyn std::error::Error>> {
-    let res = fetch_npm(
+    let res = fetch_unpkg(
         "svelte",
-        "http://unpkg.com/svelte@3.49.0/internal/index.mjs", // TODO: handle 301 to https
+        "https://unpkg.com/svelte@3.49.0/internal/index.mjs",
     )
     .await?;
     assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
@@ -64,13 +65,15 @@ fn rs(name: &str) -> String {
     s
 }
 
-async fn fetch_npm(name: &str, url: &str) -> Result<String, Box<dyn std::error::Error>> {
+async fn fetch_unpkg(name: &str, url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let cache_file_path = format!("tests/samples/npm/{}.js", name);
     let result = match fs::read_to_string(&cache_file_path) {
         Err(_) => {
             // if fail to read, assume no exist. fetch and save to cache
             // TODO: skip if have no permissions instead for some reason
-            let resp = Client::new().get(Uri::from_str(&url)?).await?;
+            let https = HttpsConnector::new();
+            let client = Client::builder().build::<_, Body>(https);
+            let resp = client.get(Uri::from_str(&url)?).await?;
             println!("Status {:#?}", &resp);
             let body_bytes = to_bytes(resp.into_body()).await?;
             let content = String::from_utf8(body_bytes.to_vec()).unwrap();
