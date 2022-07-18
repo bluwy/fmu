@@ -53,6 +53,11 @@ h1 {
   font-family: 'Courier New', Courier, monospace;
 }
 
+#metadata {
+  opacity: 0.5;
+  font-size: 0.9em;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
