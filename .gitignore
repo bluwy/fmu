@@ -6,3 +6,6 @@ Cargo.lock
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
+
+# this example is deployed
+!/examples/vite/package-lock.json
