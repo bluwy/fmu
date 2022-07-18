@@ -7,7 +7,7 @@ pub enum JsSyntax {
 }
 
 // detect file syntax esm or cjs
-pub fn get_js_syntax(s: &str) -> JsSyntax {
+pub fn guess_js_syntax(s: &str) -> JsSyntax {
     let mut i = 0;
     let mut is_esm = false;
     let mut is_cjs = false;

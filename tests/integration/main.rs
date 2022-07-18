@@ -1,4 +1,4 @@
-use fmu::{get_js_syntax, JsSyntax};
+use fmu::{guess_js_syntax, JsSyntax};
 use hyper::{body::to_bytes, Body, Client, Uri};
 use hyper_tls::HttpsConnector;
 use std::{fs, str::FromStr};
@@ -10,7 +10,7 @@ async fn esm_svelte() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/svelte@3.49.0/internal/index.mjs",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::ESM);
     Ok(())
 }
 
@@ -21,7 +21,7 @@ async fn esm_vite() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/vite@3.0.0/dist/node/chunks/dep-07a79996.js",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::ESM);
     Ok(())
 }
 
@@ -32,7 +32,7 @@ async fn esm_vue() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/vue@3.2.37/dist/vue.esm-browser.prod.js",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::ESM);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::ESM);
     Ok(())
 }
 
@@ -43,7 +43,7 @@ async fn cjs_svelte() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/svelte@3.49.0/internal/index.js",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::CJS);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::CJS);
     Ok(())
 }
 
@@ -54,7 +54,7 @@ async fn cjs_vue() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/vue@3.2.37/dist/vue.cjs.prod.js",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::CJS);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::CJS);
     Ok(())
 }
 
@@ -65,7 +65,7 @@ async fn mixed_vite_plugin_svelte() -> Result<(), Box<dyn std::error::Error>> {
         "https://unpkg.com/@sveltejs/vite-plugin-svelte@1.0.1/dist/index.js",
     )
     .await?;
-    assert_eq!(get_js_syntax(&res), JsSyntax::Mixed);
+    assert_eq!(guess_js_syntax(&res), JsSyntax::Mixed);
     Ok(())
 }
 
