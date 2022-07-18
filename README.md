@@ -29,6 +29,16 @@ const code = `exports.foo = 'bar'`
 console.log(await guessJsSyntax(code)) // "CJS"
 ```
 
+> **Note**: For Vite, you have to pass a custom URL to `init()`. For example:
+>
+> ```js
+> import { init } from 'fmu'
+> import wasmUrl from 'fmu/wasm?url'
+> await init(wasmUrl)
+> ```
+
+See [examples](./examples/) for usage n different setups.
+
 ## Development
 
 Follow the [official guide](https://www.rust-lang.org/tools/install) to install Rust.
