@@ -43,8 +43,9 @@ jobs:
       - name: Deploy site
         run: |
           git init
-          git checkout -b main
+          git checkout -b site
           git add -A
           git commit -m 'deploy'
-          git push -f git@github.com:bluwy/fmu.git main:gh-pages
+          git remote set-url --push origin https://bluwy:$${{ secrets.GITHUB_TOKEN }}@github.com/bluwy/fmu
+          git push -f origin site:gh-pages
         working-directory: examples/vite/dist
