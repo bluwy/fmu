@@ -38,6 +38,11 @@ fn iter() {
     assert_eq!(guess_js_syntax(&rs("iter_regex_ambiguity")), JsSyntax::ESM);
 }
 
+#[test]
+fn quick() {
+    assert_eq!(guess_js_syntax(" n     require     "), JsSyntax::CJS);
+}
+
 // read sample. shorten so assertions are all single-line.
 fn rs(name: &str) -> String {
     let s = match fs::read_to_string(format!("tests/unit/samples/{}.js", name)) {

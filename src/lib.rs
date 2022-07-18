@@ -295,12 +295,17 @@ fn is_word_bounded(
     identifier_start_index: usize,
     identifier_end_index: usize,
 ) -> bool {
-    !full_str[si(identifier_end_index, full_str)].is_ascii_alphanumeric()
-        && (identifier_start_index == 0
-            || !full_str[identifier_start_index - 1].is_ascii_alphanumeric())
+    let left_bounded = identifier_start_index <= 0
+        || !full_str[identifier_start_index - 1].is_ascii_alphanumeric();
+    let right_bounded = identifier_end_index >= full_str.len()
+        || !full_str[identifier_end_index].is_ascii_alphanumeric();
+    left_bounded && right_bounded
 }
 
 fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> usize {
+    if char_index <= 0 {
+        return 0;
+    }
     let mut i = char_index;
     while i > 0 {
         i -= 1;
@@ -312,12 +317,19 @@ fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> 
 }
 
 fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) -> usize {
+    if char_index >= full_str.len() - 1 {
+        return full_str.len() - 1;
+    }
     let mut i = char_index;
-    while i < full_str.len() {
+    loop {
         if !full_str[i].is_ascii_whitespace() {
             break;
         }
-        i += 1;
+        if i < full_str.len() - 1 {
+            i += 1;
+        } else {
+            break;
+        }
     }
     i
 }

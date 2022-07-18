@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "fmu": "file:../.."
+    "fmu": "link:../.."
   },
   "devDependencies": {
     "vite": "^3.0.0"
