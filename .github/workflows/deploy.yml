@@ -46,6 +46,6 @@ jobs:
           git checkout -b site
           git add -A
           git commit -m 'deploy'
-          git remote add origin https://bluwy:$${{ secrets.GITHUB_TOKEN }}@github.com/bluwy/fmu
+          git remote add origin https://bluwy:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git push -f origin site:gh-pages
         working-directory: examples/vite/dist
