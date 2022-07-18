@@ -41,7 +41,7 @@ See [examples](./examples/) for usage n different setups.
 
 ## Development
 
-Follow the [official guide](https://www.rust-lang.org/tools/install) to install Rust.
+Follow the [official guide](https://www.rust-lang.org/tools/install) to install Rust. Also install [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) to build Rust files into WebAssembly.
 
 ```bash
 # Build wasm for dev (e.g. testing examples)
