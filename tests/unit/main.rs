@@ -19,6 +19,7 @@ fn cjs() {
         get_js_syntax(&rs("cjs_create_require_scope")),
         JsSyntax::CJS
     );
+    assert_eq!(get_js_syntax(&rs("cjs_require_check")), JsSyntax::CJS);
     assert_eq!(get_js_syntax(&rs("cjs_entice_esm")), JsSyntax::CJS);
 }
 

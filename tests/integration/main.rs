@@ -58,6 +58,17 @@ async fn cjs_vue() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[tokio::test]
+async fn mixed_vite_plugin_svelte() -> Result<(), Box<dyn std::error::Error>> {
+    let res = fetch_unpkg(
+        "mixed_vite_plugin_svelte",
+        "https://unpkg.com/@sveltejs/vite-plugin-svelte@1.0.1/dist/index.js",
+    )
+    .await?;
+    assert_eq!(get_js_syntax(&res), JsSyntax::Mixed);
+    Ok(())
+}
+
 async fn fetch_unpkg(name: &str, url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let cache_file_path = format!("tests/integration/samples/{}.js", name);
     let result = match fs::read_to_string(&cache_file_path) {
