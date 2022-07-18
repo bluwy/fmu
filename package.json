@@ -11,6 +11,9 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./wasm": {
+      "default": "./dist/index_bg.wasm"
     }
   },
   "scripts": {
@@ -20,7 +23,9 @@
   "files": [
     "dist/index_bg.wasm",
     "dist/index.js",
-    "dist/index.d.ts"
+    "dist/index.d.ts",
+    "dist-proxy/index.js",
+    "dist-proxy/index.d.ts"
   ],
   "funding": "https://bjornlu.com/sponsor",
   "repository": {
