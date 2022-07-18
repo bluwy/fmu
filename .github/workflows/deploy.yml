@@ -33,10 +33,18 @@ jobs:
       - name: Install dependencies
         run: npm install
         working-directory: examples/vite
+      - name: Build site
+        run: npm run build -- --base /fmu/
+        working-directory: examples/vite
       - name: Setup git user
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - name: Build and deploy site
-        run: bash ./deploy.sh
-        working-directory: examples/vite
+      - name: Deploy site
+        run: |
+          git init
+          git checkout -b main
+          git add -A
+          git commit -m 'deploy'
+          git push -f git@github.com:bluwy/fmu.git main:gh-pages
+        working-directory: examples/vite/dist
