@@ -24,8 +24,15 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Build wasm
         run: npm run build
+      - name: Install dependencies
+        run: npm install
+        working-directory: examples/vite
       - name: Build and deploy site
         run: bash ./deploy.sh
         working-directory: examples/vite

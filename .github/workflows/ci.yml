@@ -26,5 +26,7 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test
