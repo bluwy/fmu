@@ -1,4 +1,4 @@
-import init, { guessJsSyntax } from 'fmu'
+import { init, guessJsSyntax } from 'fmu'
 import wasmUrl from 'fmu/wasm?url'
 import './style.css'
 
@@ -16,5 +16,10 @@ init(wasmUrl).then(() => {
 })
 
 function update() {
-  result.innerText = guessJsSyntax(textarea.value)
+  try {
+    result.innerText = guessJsSyntax(textarea.value)
+  } catch (e) {
+    result.innerText = '[Error] see console for details'
+    throw e
+  }
 }

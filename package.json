@@ -9,8 +9,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist-proxy/index.d.ts",
+      "import": "./dist-proxy/index.js"
     },
     "./wasm": {
       "default": "./dist/index_bg.wasm"
