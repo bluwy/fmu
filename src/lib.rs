@@ -15,6 +15,9 @@ pub enum JsSyntax {
 // detect file syntax esm or cjs
 #[wasm_bindgen(js_name = "guessJsSyntax")]
 pub fn guess_js_syntax(s: &str) -> JsSyntax {
+    #[cfg(feature = "console_error_panic_hook")]
+    console_error_panic_hook::set_once();
+
     let mut i = 0;
     let mut is_esm = false;
     let mut is_cjs = false;
@@ -292,25 +295,31 @@ fn is_word_bounded(
     identifier_start_index: usize,
     identifier_end_index: usize,
 ) -> bool {
-    !full_str[identifier_end_index].is_ascii_alphabetic()
+    !full_str[si(identifier_end_index, full_str)].is_ascii_alphanumeric()
         && (identifier_start_index == 0
-            || !full_str[identifier_start_index - 1].is_ascii_alphabetic())
+            || !full_str[identifier_start_index - 1].is_ascii_alphanumeric())
 }
 
 fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> usize {
     let mut i = char_index;
-    while i > 0 && full_str[i - 1].is_ascii_whitespace() {
+    while i > 0 {
         i -= 1;
+        if !full_str[i].is_ascii_whitespace() {
+            break;
+        }
     }
-    i - 1
+    i
 }
 
 fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) -> usize {
     let mut i = char_index;
-    while i < full_str.len() && full_str[i].is_ascii_whitespace() {
+    while i < full_str.len() {
+        if !full_str[i].is_ascii_whitespace() {
+            break;
+        }
         i += 1;
     }
-    i + 1
+    i
 }
 
 fn is_import_identifier(full_str: &[u8], iter_index: usize) -> bool {
