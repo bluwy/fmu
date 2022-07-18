@@ -1,0 +1,37 @@
+{
+  "name": "fmu",
+  "version": "0.1.0",
+  "description": "Fast module utilities",
+  "author": "Bjorn Lu",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir dist --out-name index",
+    "test": "cargo test"
+  },
+  "files": [
+    "dist/index_bg.wasm",
+    "dist/index.js",
+    "dist/index.d.ts"
+  ],
+  "funding": "https://bjornlu.com/sponsor",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bluwy/fmu"
+  },
+  "bugs": {
+    "url": "https://github.com/bluwy/fmu/issues"
+  },
+  "keywords": [
+    "javascript",
+    "module"
+  ]
+}

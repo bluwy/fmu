@@ -1,3 +1,9 @@
+// suppress wasm-bindgen auto-generated name warning
+#![allow(non_snake_case, non_upper_case_globals)]
+
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
 #[derive(Debug, PartialEq, Eq)]
 pub enum JsSyntax {
     ESM,
@@ -7,6 +13,7 @@ pub enum JsSyntax {
 }
 
 // detect file syntax esm or cjs
+#[wasm_bindgen(js_name = "guessJsSyntax")]
 pub fn guess_js_syntax(s: &str) -> JsSyntax {
     let mut i = 0;
     let mut is_esm = false;
