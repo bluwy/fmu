@@ -20,9 +20,13 @@ $ npm install fmu
 ```
 
 ```js
-import { getJsSyntax } from 'fmu'
+import { init, guessJsSyntax } from 'fmu'
+
+// initialize wasm (MUST call this before any other APIs)
+await init()
+
 const code = `exports.foo = 'bar'`
-console.log(await getJsSyntax(code)) // "CJS"
+console.log(await guessJsSyntax(code)) // "CJS"
 ```
 
 ## Development
@@ -30,6 +34,12 @@ console.log(await getJsSyntax(code)) // "CJS"
 Follow the [official guide](https://www.rust-lang.org/tools/install) to install Rust.
 
 ```bash
+# Build wasm for dev (e.g. testing examples)
+$ npm run dev
+
+# Build wasm for publishing
+$ npm run build
+
 # Run unit and integration tests
 $ cargo test
 ```
