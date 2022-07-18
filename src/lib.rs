@@ -23,16 +23,19 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
     let mut is_cjs = false;
     let b = s.as_bytes();
 
-    // parse state
-    // template literals can contain js via ${}, when this happens, we increase the depth by 1.
-    // because this can happen nested, whenever the depth is odd, we are working with js,
-    // whenever the depth is even, we are working with template literals.
-    // this also affects how we check for closing char.
+    // parsing state variables
+    //
+    // template literals can contain js via ${}, when this happens, we increase the depth by 1
+    // for each js within. When the depth is more than 0, we need to do special checks to
+    // know when we reach the end of the js.
+    //
     // const foo = `hello ${world}`
     // |----------||------||-----||
     //       0                1
     let mut template_literal_js_depth = 0;
     // shadowing
+    // default depth is 0, every open brace increments, closing brace decrements.
+    // this happens for JS objects too but for us, it's good enough
     let mut scope_depth = 0;
     let mut require_shadowed_depth = usize::MAX;
     let mut module_shadowed_depth = usize::MAX;
@@ -121,7 +124,13 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
         // skip regex
         if c == b'/' {
             let left = get_nearest_non_whitespace_index_left(&b, i);
-            if !b[left].is_ascii_alphanumeric() || is_reverse_regex_preceded_keyword(&b, left) {
+            // knowing when a / is a division or the start of a regex ia PAIN. luckily this below
+            // works good enough, by checking the we're not preceding any variables, but if is,
+            // only allow specific keywords (see function for specific keywords)
+            // Thanks for inspiration: https://github.com/guybedford/es-module-lexer/blob/559a550318fcdfe20c60cb322c147905b5aadf9f/src/lexer.c#L186-L200
+            if !b[left].is_ascii_alphanumeric()
+                || is_slash_preceded_by_regex_possible_keyword(&b, left)
+            {
                 // mini [] state, anything in [] is literal, so skip / detection
                 let mut is_in_bracket = false;
                 let re_closing_pos = match b[i + 1..].iter().enumerate().position(|(j, &v)| {
@@ -132,7 +141,7 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
                         is_in_bracket = false;
                         return false;
                     } else if v == b'\n' {
-                        // TODO: this might be redundant
+                        // TODO: this might be redundant now that i implemented the divisiion / regex heuristic
                         return true;
                     } else if !is_in_bracket && v == b'/' && !is_backslash_escaped(b, i + 1 + j) {
                         return true;
@@ -169,8 +178,10 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
         if !is_esm {
             // top-level import
             if is_import_identifier(&b, i) {
+                // TODO: handle space between import.meta, but why would someone do that
                 if b[i + 1] == b'.' && is_meta_identifier(&b, i + 2) {
                     is_esm = true;
+                    i += 11;
                 } else {
                     // TODO: handle \r\n?
                     for &v in b[i + 6..].iter() {
@@ -182,8 +193,8 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
                             break;
                         }
                     }
+                    i += 6;
                 }
-                i += 6;
                 continue;
             }
 
@@ -198,7 +209,7 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
         if !is_cjs {
             // track scope depth
             // NOTE: track in cjs only as it's only relevant for it
-            // TODO: track => scope (pita)
+            // TODO: track `=>` and `?:` scoped (pita)
             if c == b'{' {
                 scope_depth += 1;
             } else if c == b'}' {
@@ -270,7 +281,7 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
     }
 }
 
-// safe index
+// safe index (shorten to not be annoying)
 fn si(i: usize, b: &[u8]) -> usize {
     i.min(b.len() - 1)
 }
@@ -290,6 +301,8 @@ fn is_backslash_escaped(full_str: &[u8], char_index: usize) -> bool {
     backslash_num % 2 == 1
 }
 
+// make sure the identifier is it itself, e.g. match `import` not `blaimport`.
+// this works the same was as regex \b
 fn is_word_bounded(
     full_str: &[u8],
     identifier_start_index: usize,
@@ -302,6 +315,8 @@ fn is_word_bounded(
     left_bounded && right_bounded
 }
 
+// walks to the left until a non-whitespace character is found.
+// return 0 if out of string bounds
 fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> usize {
     if char_index <= 0 {
         return 0;
@@ -316,6 +331,8 @@ fn get_nearest_non_whitespace_index_left(full_str: &[u8], char_index: usize) -> 
     i
 }
 
+// walks to the right until a non-whitespace character is found.
+// return string last index if out of string bounds
 fn get_nearest_non_whitespace_index_right(full_str: &[u8], char_index: usize) -> usize {
     if char_index >= full_str.len() - 1 {
         return full_str.len() - 1;
@@ -394,9 +411,8 @@ fn is_exports_identifier(full_str: &[u8], iter_index: usize) -> bool {
         && is_word_bounded(full_str, iter_index, iter_index + 7)
 }
 
-// whether the identifier is a variable that
+// check if preceded by var, let, const
 fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
-    // check if preceded by var, let, const
     let prev_non_whitespace_index =
         get_nearest_non_whitespace_index_left(full_str, identifier_start_index);
 
@@ -444,6 +460,7 @@ fn is_var_declaration(full_str: &[u8], identifier_start_index: usize) -> bool {
     false
 }
 
+// check if it's a function parameter that's creating a scope
 fn is_function_param_declaration(
     full_str: &[u8],
     identifier_start_index: usize,
@@ -478,9 +495,9 @@ fn is_function_param_declaration(
     false
 }
 
-// whether the identifier is preceded by a JS keyword (in reverse check)
+// whether the identifier is preceded by a regex-possible keyword (in reverse check)
 // if, else, return, while, yield
-fn is_reverse_regex_preceded_keyword(full_str: &[u8], char_index: usize) -> bool {
+fn is_slash_preceded_by_regex_possible_keyword(full_str: &[u8], char_index: usize) -> bool {
     if full_str[char_index] == b'f' && full_str[char_index.saturating_sub(1)] == b'i' {
         return true;
     }
