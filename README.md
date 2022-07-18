@@ -37,7 +37,7 @@ console.log(await guessJsSyntax(code)) // "CJS"
 > await init(wasmUrl)
 > ```
 
-See [examples](./examples/) for usage n different setups.
+See [examples](./examples/) for usage with different setups.
 
 ## Development
 

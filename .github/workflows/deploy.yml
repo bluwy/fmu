@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'lib/**'
+      - 'dist-proxy/**'
+      - 'examples/vite/**'
+      - '.github/workflows/deploy.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # prevents this action from running on forks
+    if: github.repository == 'bluwy/fmu'
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+      - name: Build wasm
+        run: npm run build
+      - name: Build and deploy site
+        run: bash ./deploy.sh
+        working-directory: examples/vite
