@@ -46,9 +46,14 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
 
         // single line comment, ignore until \n
         if c == b'/' && b[i + 1] == b'/' {
-            // TODO: handle \r\n?
-            let new_line_pos = match b[i + 2..].iter().position(|&v| v == b'\n') {
-                Some(pos) => pos,
+            let new_line_pos = match b[i + 2..].iter().position(|&v| v == b'\n' || v == b'\r') {
+                Some(pos) => {
+                  if pos > 0 && b[i + 2 + pos - 1] == b'\r' {
+                    pos + 1
+                  } else {
+                    pos
+                  }
+                },
                 None => break, // assume reach end of file
             };
             i += 2 + new_line_pos + 1;
