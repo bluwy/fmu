@@ -48,7 +48,7 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
         if c == b'/' && b[i + 1] == b'/' {
             let new_line_pos = match b[i + 2..].iter().position(|&v| v == b'\n' || v == b'\r') {
                 Some(pos) => {
-                  if pos > 0 && b[i + 2 + pos] == b'\r' {
+                  if pos > 0 && b[i + 2 + pos + 1] == b'\n' {
                     pos + 1
                   } else {
                     pos
