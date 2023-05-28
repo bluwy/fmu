@@ -33,12 +33,13 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
     // shadowing
     // default depth is 0, every open brace increments, closing brace decrements.
     // this happens for JS objects too but for us, it's good enough
-    let mut scope_depth = 0;
+    let mut scope_depth: usize = 0;
     let mut require_shadowed_depth = usize::MAX;
     let mut module_shadowed_depth = usize::MAX;
     let mut exports_shadowed_depth = usize::MAX;
 
     walk(s, |b, i, c| {
+        print!("{}", c as char);
         if is_esm && is_cjs {
             return WalkCallbackResult::Break;
         }
@@ -82,7 +83,7 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
             if c == b'{' {
                 scope_depth += 1;
             } else if c == b'}' {
-                scope_depth -= 1;
+                scope_depth = scope_depth.saturating_sub(1);
                 // re-concile shadowed depth, if we exit the scope that has been
                 // shadowed by require, module, or exports, reset them
                 if scope_depth < require_shadowed_depth {
