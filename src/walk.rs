@@ -1,26 +1,19 @@
-// suppress wasm-bindgen auto-generated name warning
-#![allow(non_snake_case, non_upper_case_globals)]
+use crate::utils::{
+    get_nearest_non_whitespace_index_left, is_backslash_escaped,
+    is_slash_preceded_by_regex_possible_keyword,
+};
 
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-#[derive(Debug, PartialEq, Eq)]
-pub enum JsSyntax {
-    ESM,
-    CJS,
-    Mixed,
-    Unknown,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WalkCallbackResult {
+    Continue,
+    Break,
 }
 
-// detect file syntax esm or cjs
-#[wasm_bindgen(js_name = "guessJsSyntax")]
-pub fn guess_js_syntax(s: &str) -> JsSyntax {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-
+pub fn walk<F>(s: &str, mut cb: F)
+where
+    F: FnMut(&[u8], &mut usize, u8) -> WalkCallbackResult,
+{
     let mut i = 0;
-    let mut is_esm = false;
-    let mut is_cjs = false;
     let b = s.as_bytes();
 
     // parsing state variables
@@ -33,27 +26,20 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
     // |----------||------||-----||
     //       0                1
     let mut template_literal_js_depth = 0;
-    // shadowing
-    // default depth is 0, every open brace increments, closing brace decrements.
-    // this happens for JS objects too but for us, it's good enough
-    let mut scope_depth = 0;
-    let mut require_shadowed_depth = usize::MAX;
-    let mut module_shadowed_depth = usize::MAX;
-    let mut exports_shadowed_depth = usize::MAX;
 
-    while i < b.len() && !(is_esm && is_cjs) {
+    while i < b.len() {
         let c = b[i];
 
         // single line comment, ignore until \n
         if c == b'/' && b[i + 1] == b'/' {
             let new_line_pos = match b[i + 2..].iter().position(|&v| v == b'\n' || v == b'\r') {
                 Some(pos) => {
-                  if pos > 0 && b[i + 2 + pos + 1] == b'\n' {
-                    pos + 1
-                  } else {
-                    pos
-                  }
-                },
+                    if pos > 0 && b[i + 2 + pos + 1] == b'\n' {
+                        pos + 1
+                    } else {
+                        pos
+                    }
+                }
                 None => break, // assume reach end of file
             };
             i += 2 + new_line_pos + 1;
@@ -179,110 +165,11 @@ pub fn guess_js_syntax(s: &str) -> JsSyntax {
             }
         }
 
-        // esm specific detection
-        if !is_esm {
-            // top-level import
-            if is_import_identifier(&b, i) {
-                // TODO: handle space between import.meta, but why would someone do that
-                if b[i + 1] == b'.' && is_meta_identifier(&b, i + 2) {
-                    is_esm = true;
-                    i += 11;
-                } else {
-                    // TODO: handle \r\n?
-                    for &v in b[i + 6..].iter() {
-                        if v == b'\'' || v == b'"' || v == b'{' || v == b'\n' {
-                            is_esm = true;
-                            break;
-                        } else if v == b'(' {
-                            // dynamic import
-                            break;
-                        }
-                    }
-                    i += 6;
-                }
-                continue;
-            }
-
-            // top-level export
-            if is_export_identifier(&b, i) {
-                is_esm = true;
-                i += 6;
-                continue;
-            }
+        let result = cb(b, &mut i, c);
+        if result == WalkCallbackResult::Break {
+            break;
+        } else if result == WalkCallbackResult::Continue {
+            i += 1;
         }
-
-        if !is_cjs {
-            // track scope depth
-            // NOTE: track in cjs only as it's only relevant for it
-            // TODO: track `=>` and `?:` scoped (pita)
-            if c == b'{' {
-                scope_depth += 1;
-            } else if c == b'}' {
-                scope_depth -= 1;
-                // re-concile shadowed depth, if we exit the scope that has been
-                // shadowed by require, module, or exports, reset them
-                if scope_depth < require_shadowed_depth {
-                    require_shadowed_depth = usize::MAX;
-                }
-                if scope_depth < module_shadowed_depth {
-                    module_shadowed_depth = usize::MAX;
-                }
-                if scope_depth < exports_shadowed_depth {
-                    exports_shadowed_depth = usize::MAX;
-                }
-            }
-
-            // require reference
-            if scope_depth < require_shadowed_depth && is_require_identifier(&b, i) {
-                if is_var_declaration(&b, i) {
-                    require_shadowed_depth = scope_depth;
-                } else if is_function_param_declaration(&b, i, i + 7) {
-                    require_shadowed_depth = scope_depth + 1;
-                } else {
-                    is_cjs = true;
-                }
-                i += 7;
-                continue;
-            }
-
-            // module reference
-            if scope_depth < module_shadowed_depth && is_module_identifier(&b, i) {
-                if is_var_declaration(&b, i) {
-                    module_shadowed_depth = scope_depth;
-                } else if is_function_param_declaration(&b, i, i + 6) {
-                    module_shadowed_depth = scope_depth + 1;
-                } else {
-                    is_cjs = true;
-                }
-                i += 6;
-                continue;
-            }
-
-            // exports reference
-            if scope_depth < exports_shadowed_depth && is_exports_identifier(&b, i) {
-                if is_var_declaration(&b, i) {
-                    exports_shadowed_depth = scope_depth;
-                } else if is_function_param_declaration(&b, i, i + 7) {
-                    exports_shadowed_depth = scope_depth + 1;
-                } else {
-                    is_cjs = true;
-                }
-                i += 7;
-                continue;
-            }
-        }
-
-        i += 1;
-    }
-
-    if is_esm && is_cjs {
-        return JsSyntax::Mixed;
-    } else if is_esm {
-        return JsSyntax::ESM;
-    } else if is_cjs {
-        return JsSyntax::CJS;
-    } else {
-        return JsSyntax::Unknown;
     }
 }
-
